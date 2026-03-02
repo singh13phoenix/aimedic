@@ -10,7 +10,6 @@ DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 
 # Example: DJANGO_ALLOWED_HOSTS=aimedic.tech13.ca,127.0.0.1
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if h.strip()] or ["*"]
-DJANGO_ALLOWED_HOSTS=aimedic.tech13.ca
 
 INSTALLED_APPS = [
     "django.contrib.admin",
