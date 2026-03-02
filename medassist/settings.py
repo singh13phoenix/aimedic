@@ -55,10 +55,10 @@ WSGI_APPLICATION = "medassist.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.postgresql"),
-        "NAME": os.getenv("DB_NAME", "postgresql-database-fw4oowcwk00g4s4skwo8w8wk"),
+        "NAME": os.getenv("DB_NAME", "aimedic"),  # <-- your actual DB name
         "USER": os.getenv("DB_USER", "postgres"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "aimedic@13#"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "postgresql-database-fw4oowcwk00g4s4skwo8w8wk"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
