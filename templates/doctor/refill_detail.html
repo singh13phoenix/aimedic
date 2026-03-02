@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Refill #{{ obj.id }}{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <h3 class="mb-1">Refill Request #{{ obj.id }}</h3>
+          <div class="text-muted">Patient: <strong>{{ obj.user }}</strong></div>
+        </div>
+        <span class="badge text-bg-{% if obj.status == 'PENDING' %}warning{% elif obj.status == 'REJECTED' %}danger{% else %}success{% endif %}">
+          {{ obj.get_status_display }}
+        </span>
+      </div>
+
+      <hr>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="text-muted small">Medication</div>
+          <div class="fw-semibold">{{ obj.medication_name }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Dosage</div>
+          <div class="fw-semibold">{{ obj.dosage|default:"-" }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Frequency</div>
+          <div class="fw-semibold">{{ obj.frequency|default:"-" }}</div>
+        </div>
+        <div class="col-12">
+          <div class="text-muted small">Notes</div>
+          <div class="fw-semibold">{{ obj.notes|default:"-" }}</div>
+        </div>
+      </div>
+
+      <hr>
+      <form method="post" action="/doctor/refills/{{ obj.id }}/action/">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Doctor note (optional)</label>
+          <textarea class="form-control" name="note" rows="3" placeholder="Add note for patient...">{{ obj.doctor_note }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-success" name="action" value="approve">Approve</button>
+          <button class="btn btn-danger" name="action" value="reject">Reject</button>
+          <a class="btn btn-outline-secondary" href="/doctor/">Back</a>
+        </div>
+
+        <hr class="my-4">
+        <h5 class="mb-2">Send to Drug Mart</h5>
+        <div class="text-muted mb-2">Assigned drug mart: <strong>{{ obj.user.preferred_pharmacy|default:"Not assigned" }}</strong></div>
+        <div class="mb-3">
+          <label class="form-label">Refill instruction</label>
+          <textarea class="form-control" name="instruction_text" rows="3" placeholder="Example: Dispense 30 tablets, 1 refill."></textarea>
+        </div>
+        <button class="btn btn-dark" name="action" value="send_to_pharmacy">Send Instruction</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h5 class="mb-2">Patient snapshot</h5>
+      <div class="text-muted small">Allergies</div>
+      <div class="mb-2">{{ obj.user.allergies|default:"-" }}</div>
+      <div class="text-muted small">Chronic conditions</div>
+      <div>{{ obj.user.chronic_conditions|default:"-" }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

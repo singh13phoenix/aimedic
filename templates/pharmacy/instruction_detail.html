@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Instruction #{{ obj.id }}{% endblock %}
+{% block content %}
+<div class="card p-4">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <h3 class="mb-1">Refill Instruction #{{ obj.id }}</h3>
+      <div class="text-muted">Patient: <strong>{{ obj.refill_request.user }}</strong> • Doctor: <strong>{{ obj.doctor.full_name }}</strong></div>
+    </div>
+    <span class="badge text-bg-info">{{ obj.get_status_display }}</span>
+  </div>
+
+  <hr>
+  <div class="mb-3">
+    <div class="text-muted small">Medication</div>
+    <div class="fw-semibold">{{ obj.refill_request.medication_name }} {{ obj.refill_request.dosage }} {{ obj.refill_request.frequency }}</div>
+  </div>
+  <div class="mb-3">
+    <div class="text-muted small">Instruction</div>
+    <div class="fw-semibold">{{ obj.instruction_text }}</div>
+  </div>
+
+  <form method="post" action="/pharmacy/instructions/{{ obj.id }}/status/">
+    {% csrf_token %}
+    <label class="form-label">Update status</label>
+    <select class="form-select" name="status">
+      {% for v, label in obj.Status.choices %}
+        <option value="{{ v }}" {% if obj.status == v %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save</button>
+      <a class="btn btn-outline-secondary" href="/pharmacy/">Back</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

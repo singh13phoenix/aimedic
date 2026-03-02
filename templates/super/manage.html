@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Manage Assignments{% endblock %}
+{% block content %}
+<div class="card p-4">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <h3 class="mb-1">Manage & Assign</h3>
+      <div class="text-muted">Assign doctors and drug marts to patients.</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/super/">Back</a>
+  </div>
+
+  <hr>
+
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead>
+        <tr>
+          <th>Patient</th>
+          <th>Username</th>
+          <th>Assigned Doctor</th>
+          <th>Preferred Drug Mart</th>
+          <th style="width:340px;">Update</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td class="fw-semibold">{{ u }}</td>
+          <td class="text-muted">{{ u.account.username }}</td>
+          <td>{{ u.assigned_doctor|default:"-" }}</td>
+          <td>{{ u.preferred_pharmacy|default:"-" }}</td>
+          <td>
+            <form class="d-flex gap-2" method="post" action="/super/assign/">
+              {% csrf_token %}
+              <input type="hidden" name="user_id" value="{{ u.id }}">
+              <select class="form-select form-select-sm" name="doctor_id">
+                <option value="">-- Doctor --</option>
+                {% for d in doctors %}
+                  <option value="{{ d.id }}" {% if u.assigned_doctor_id == d.id %}selected{% endif %}>{{ d.full_name }}</option>
+                {% endfor %}
+              </select>
+              <select class="form-select form-select-sm" name="pharmacy_id">
+                <option value="">-- Drug mart --</option>
+                {% for p in pharmacies %}
+                  <option value="{{ p.id }}" {% if u.preferred_pharmacy_id == p.id %}selected{% endif %}>{{ p.store_name }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-sm btn-primary" type="submit">Save</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

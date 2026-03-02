@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Super Admin{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <h3 class="mb-1">Super Admin Dashboard</h3>
+      <div class="text-muted mb-3">Control patients, doctors and drug marts from one place.</div>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="card p-3"><div class="text-muted small">Patients</div><div class="display-6">{{ users }}</div></div>
+        </div>
+        <div class="col-md-4">
+          <div class="card p-3"><div class="text-muted small">Doctors</div><div class="display-6">{{ doctors }}</div></div>
+        </div>
+        <div class="col-md-4">
+          <div class="card p-3"><div class="text-muted small">Drug Marts</div><div class="display-6">{{ pharmacies }}</div></div>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <div class="card p-3"><div class="text-muted small">Pending appointments</div><div class="display-6">{{ pending_appts }}</div></div>
+        </div>
+        <div class="col-md-6">
+          <div class="card p-3"><div class="text-muted small">Pending refills</div><div class="display-6">{{ pending_refills }}</div></div>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <a class="btn btn-primary" href="/super/manage/">Manage & Assign</a>
+        <a class="btn btn-outline-dark" href="/admin/">Django Admin</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h5 class="mb-2">Quick links</h5>
+      <div class="d-grid gap-2">
+        <a class="btn btn-outline-secondary" href="/login/user/">Patient Login Page</a>
+        <a class="btn btn-outline-secondary" href="/login/doctor/">Doctor Login Page</a>
+        <a class="btn btn-outline-secondary" href="/login/pharmacy/">Drug Mart Login Page</a>
+      </div>
+      <hr>
+      <div class="text-muted small">Tip: Use <strong>Django Admin</strong> for adding more accounts.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

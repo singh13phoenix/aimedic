@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}AImedic{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <h2 class="mb-1">AImedic.tech13.ca</h2>
+          <div class="text-muted">Choose your portal to sign in</div>
+        </div>
+        <span class="badge text-bg-dark">tech13.ca</span>
+      </div>
+
+      <div class="row g-3 mt-3">
+        <div class="col-md-6">
+          <a class="btn btn-primary w-100 py-3" href="/login/user/">Patient Portal</a>
+        </div>
+        <div class="col-md-6">
+          <a class="btn btn-outline-primary w-100 py-3" href="/login/doctor/">Doctor Portal</a>
+        </div>
+        <div class="col-md-6">
+          <a class="btn btn-outline-dark w-100 py-3" href="/login/pharmacy/">Drug Mart Portal</a>
+        </div>
+        <div class="col-md-6">
+          <a class="btn btn-outline-secondary w-100 py-3" href="/login/super/">Super Admin</a>
+        </div>
+      </div>
+
+      <hr class="my-4">
+      <div class="text-muted small">
+        Medical emergencies: call <strong>911</strong>. For non-emergency health advice in BC: call <strong>811</strong>.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

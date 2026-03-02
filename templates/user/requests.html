@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}My Requests{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h5 class="mb-3">Appointments</h5>
+      {% if appts %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Scheduled</th><th>Created</th></tr></thead>
+            <tbody>
+              {% for a in appts %}
+                <tr>
+                  <td>#{{ a.id }}</td>
+                  <td>{{ a.get_type_display }}</td>
+                  <td><span class="badge text-bg-{% if a.status == 'APPROVED' %}success{% elif a.status == 'REJECTED' %}danger{% else %}warning{% endif %}">{{ a.get_status_display }}</span></td>
+                  <td class="small text-muted">{{ a.scheduled_at|default:"-" }}</td>
+                  <td class="small text-muted">{{ a.created_at }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-muted">No appointment requests yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h5 class="mb-3">Refills</h5>
+      {% if refills %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>ID</th><th>Medicine</th><th>Status</th><th>Drug mart status</th><th>Created</th></tr></thead>
+            <tbody>
+              {% for r in refills %}
+                <tr>
+                  <td>#{{ r.id }}</td>
+                  <td>{{ r.medication_name }}</td>
+                  <td><span class="badge text-bg-{% if r.status == 'APPROVED' or r.status == 'SENT_TO_PHARMACY' %}success{% elif r.status == 'REJECTED' %}danger{% else %}warning{% endif %}">{{ r.get_status_display }}</span></td>
+                  <td class="small text-muted">{% if r.instruction %}{{ r.instruction.get_status_display }}{% else %}-{% endif %}</td>
+                  <td class="small text-muted">{{ r.created_at }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-muted">No refill requests yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="mt-3">
+  <a class="btn btn-outline-secondary" href="/user/">Back</a>
+</div>
+{% endblock %}

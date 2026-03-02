@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Login - {{ role }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card p-4">
+      <h4 class="mb-1">Login</h4>
+      <p class="text-muted mb-4">Portal: <strong>{{ role }}</strong></p>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          {{ form.username }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          {{ form.password }}
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Sign in</button>
+      </form>
+
+      <hr class="my-4">
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/login/user/">Patient Login</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/login/doctor/">Doctor Login</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/login/pharmacy/">Drug Mart Login</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/login/super/">Super Admin Login</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

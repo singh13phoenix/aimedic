@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Doctor Dashboard{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <h3 class="mb-1">Dr. {{ doctor.full_name }}</h3>
+      <div class="text-muted mb-4">{{ doctor.clinic_name }}</div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card p-3">
+            <h5 class="mb-2">Pending Appointments</h5>
+            {% if appts %}
+              <div class="list-group list-group-flush">
+                {% for a in appts %}
+                  <a class="list-group-item list-group-item-action" href="/doctor/appointments/{{ a.id }}/">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <div class="fw-semibold">#{{ a.id }} - {{ a.user }}</div>
+                        <div class="small text-muted">{{ a.get_type_display }} • {{ a.reason_text|truncatechars:80 }}</div>
+                      </div>
+                      <div class="small text-muted">{{ a.created_at|date:"M d, Y" }}</div>
+                    </div>
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted">No pending appointment requests.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="card p-3">
+            <h5 class="mb-2">Pending Refills</h5>
+            {% if refills %}
+              <div class="list-group list-group-flush">
+                {% for r in refills %}
+                  <a class="list-group-item list-group-item-action" href="/doctor/refills/{{ r.id }}/">
+                    <div class="d-flex justify-content-between">
+                      <div>
+                        <div class="fw-semibold">#{{ r.id }} - {{ r.user }}</div>
+                        <div class="small text-muted">{{ r.medication_name }} • {{ r.notes|truncatechars:80 }}</div>
+                      </div>
+                      <div class="small text-muted">{{ r.created_at|date:"M d, Y" }}</div>
+                    </div>
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted">No pending refill requests.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4">
+      <h5 class="mb-2">Doctor AI Voice Assistant (Browser)</h5>
+      <p class="text-muted mb-2">Use mic. Example: “show patient history” or “approve request”.</p>
+
+      <div class="d-flex gap-2 align-items-center">
+        <button id="micBtn" class="btn btn-dark mic-btn" type="button">🎤</button>
+        <div class="flex-grow-1 transcript" id="transcript">Transcript will appear here...</div>
+      </div>
+      <div class="mt-3">
+        <div class="fw-semibold">AI Reply</div>
+        <div class="transcript" id="aiReply">Waiting...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card p-4">
+      <h5 class="mb-2">Quick links</h5>
+      <div class="d-grid gap-2">
+        <a class="btn btn-outline-secondary" href="/doctor/notifications/">Notifications</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const micBtn = document.getElementById("micBtn");
+  const transcriptEl = document.getElementById("transcript");
+  const aiReplyEl = document.getElementById("aiReply");
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null; let listening = false;
+
+  async function sendToAI(text){
+    aiReplyEl.textContent = "Thinking...";
+    const res = await fetch("/ai/chat/", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({text, mode:"doctor"})
+    });
+    const data = await res.json();
+    aiReplyEl.textContent = data.reply || "No reply";
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(aiReplyEl.textContent);
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }
+  }
+
+  function start(){
+    if(!SpeechRecognition){ alert("SpeechRecognition not supported in this browser."); return; }
+    rec = new SpeechRecognition();
+    rec.lang = "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onresult = (e)=>{
+      let t=""; for(let i=0;i<e.results.length;i++){ t+=e.results[i][0].transcript; }
+      transcriptEl.textContent=t;
+      if(e.results[e.results.length-1].isFinal){ sendToAI(t.trim()); }
+    };
+    rec.onend=()=>{ listening=false; micBtn.textContent="🎤"; };
+    listening=true; micBtn.textContent="⏹️"; transcriptEl.textContent="Listening..."; rec.start();
+  }
+
+  micBtn.addEventListener("click", ()=>{
+    if(listening && rec){ rec.stop(); listening=false; micBtn.textContent="🎤"; return; }
+    start();
+  });
+})();
+</script>
+{% endblock %}

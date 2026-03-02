@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Drug Mart Dashboard{% endblock %}
+{% block content %}
+<div class="card p-4">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <h3 class="mb-1">{{ pharmacy.store_name }}</h3>
+      <div class="text-muted">{{ pharmacy.address }}</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/pharmacy/notifications/">Notifications</a>
+  </div>
+
+  <hr>
+  <h5 class="mb-3">Refill Instructions</h5>
+
+  {% if instructions %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>ID</th><th>Patient</th><th>Medication</th><th>Status</th><th>Created</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in instructions %}
+          <tr>
+            <td>#{{ i.id }}</td>
+            <td>{{ i.refill_request.user }}</td>
+            <td>{{ i.refill_request.medication_name }}</td>
+            <td><span class="badge text-bg-info">{{ i.get_status_display }}</span></td>
+            <td class="small text-muted">{{ i.created_at|date:"M d, Y" }}</td>
+            <td><a class="btn btn-sm btn-primary" href="/pharmacy/instructions/{{ i.id }}/">Open</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="text-muted">No instructions yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

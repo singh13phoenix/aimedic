@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Patient Dashboard{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h3 class="mb-1">Welcome, {{ profile }}</h3>
+      <div class="text-muted mb-3">Assigned doctor: <strong>{{ profile.assigned_doctor|default:"Not assigned" }}</strong></div>
+
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <a class="btn btn-primary" href="/user/appointment/new/?type=VISIT">Visit appointment</a>
+        <a class="btn btn-outline-primary" href="/user/appointment/new/?type=PHONE">Phone appointment</a>
+        <a class="btn btn-outline-dark" href="/user/refill/new/">Refill medicine request</a>
+        <a class="btn btn-outline-secondary" href="/user/requests/">Track my requests</a>
+      </div>
+
+      <h5 class="mb-2">AI Voice Assistant (Browser)</h5>
+      <p class="text-muted mb-2">Click mic and speak: “phone appointment tomorrow” or “refill medicine”.</p>
+
+      <div class="d-flex gap-2 align-items-center">
+        <button id="micBtn" class="btn btn-dark mic-btn" type="button">🎤</button>
+        <div class="flex-grow-1 transcript" id="transcript">Transcript will appear here...</div>
+      </div>
+
+      <div class="mt-3">
+        <div class="fw-semibold">AI Reply</div>
+        <div class="transcript" id="aiReply">Waiting...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h5 class="mb-2">Quick links</h5>
+      <div class="d-grid gap-2">
+        <a class="btn btn-outline-secondary" href="/user/notifications/">Notifications</a>
+        <a class="btn btn-outline-secondary" href="/user/requests/">My Requests</a>
+      </div>
+      <hr>
+      <div class="text-muted small">
+        Medical emergencies: call <strong>911</strong>. For non-emergency health advice in BC: call <strong>811</strong>.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const micBtn = document.getElementById("micBtn");
+  const transcriptEl = document.getElementById("transcript");
+  const aiReplyEl = document.getElementById("aiReply");
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  let listening = false;
+
+  async function sendToAI(text){
+    aiReplyEl.textContent = "Thinking...";
+    const res = await fetch("/ai/chat/", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({text, mode:"user"})
+    });
+    const data = await res.json();
+    aiReplyEl.textContent = data.reply || "No reply";
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(aiReplyEl.textContent);
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }
+  }
+
+  function start(){
+    if(!SpeechRecognition){
+      alert("SpeechRecognition not supported in this browser. Use Chrome/Edge desktop.");
+      return;
+    }
+    rec = new SpeechRecognition();
+    rec.lang = "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onresult = (e) => {
+      let t = "";
+      for (let i=0; i<e.results.length; i++){
+        t += e.results[i][0].transcript;
+      }
+      transcriptEl.textContent = t;
+      if (e.results[e.results.length-1].isFinal){
+        sendToAI(t.trim());
+      }
+    };
+    rec.onend = () => { listening = false; micBtn.textContent = "🎤"; };
+    listening = true;
+    micBtn.textContent = "⏹️";
+    transcriptEl.textContent = "Listening...";
+    rec.start();
+  }
+
+  micBtn.addEventListener("click", ()=>{
+    if(listening && rec){ rec.stop(); listening=false; micBtn.textContent="🎤"; return; }
+    start();
+  });
+})();
+</script>
+{% endblock %}
