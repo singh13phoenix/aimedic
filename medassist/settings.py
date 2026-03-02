@@ -58,7 +58,7 @@ DATABASES = {
         "NAME": os.getenv("DB_NAME", "aimedic"),  # <-- your actual DB name
         "USER": os.getenv("DB_USER", "postgres"),
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", "postgresql-database-fw4oowcwk00g4s4skwo8w8wk"),
+        "HOST": os.getenv("DB_HOST", "aimedic-postgres"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
