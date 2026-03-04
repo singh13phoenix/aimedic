@@ -383,7 +383,153 @@ def doctor_patient_summary(request, user_id):
         "allergies": patient.allergies,
         "chronic_conditions": patient.chronic_conditions,
     })
+
 # ---------------- AI Voice assistant start ----------------
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY",""))
+
+def _tool_create_appointment(request, args):
+    profile = get_object_or_404(UserProfile, account=request.user)
+    if not profile.assigned_doctor:
+        return {"error": "no_assigned_doctor"}
+
+    obj = AppointmentRequest.objects.create(
+        user=profile,
+        doctor=profile.assigned_doctor,
+        type=args.get("type","PHONE"),
+        reason_text=args.get("reason_text",""),
+        status=AppointmentRequest.Status.PENDING,
+        ai_summary=args.get("ai_summary",""),
+    )
+    notify(profile.assigned_doctor.account, "New Appointment Request",
+           f"{profile} requested a {obj.get_type_display()} appointment.", "APPOINTMENT", obj.id)
+    return {"appointment_id": obj.id}
+
+def _tool_create_refill(request, args):
+    profile = get_object_or_404(UserProfile, account=request.user)
+    if not profile.assigned_doctor:
+        return {"error": "no_assigned_doctor"}
+
+    obj = RefillRequest.objects.create(
+        user=profile,
+        doctor=profile.assigned_doctor,
+        medication_name=args.get("medication_name",""),
+        dosage=args.get("dosage",""),
+        frequency=args.get("frequency",""),
+        notes=args.get("notes",""),
+        status=RefillRequest.Status.PENDING,
+        ai_summary=args.get("ai_summary",""),
+    )
+    notify(profile.assigned_doctor.account, "New Refill Request",
+           f"{profile} requested refill: {obj.medication_name}.", "REFILL", obj.id)
+    return {"refill_id": obj.id}
+
+@csrf_exempt
+def ai_voice_patient(request):
+    if request.method != "POST":
+        return JsonResponse({"error":"POST only"}, status=400)
+    if not request.user.is_authenticated or request.user.role != Account.Role.USER:
+        return JsonResponse({"error":"forbidden"}, status=403)
+
+    payload = json.loads(request.body.decode("utf-8"))
+    text = (payload.get("text") or "").strip()
+    if not text:
+        return JsonResponse({"reply":"Please say something."})
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "create_appointment_request",
+                "description": "Create a new appointment request (visit or phone) for the logged-in patient.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type":"string","enum":["VISIT","PHONE"]},
+                        "reason_text": {"type":"string"},
+                        "ai_summary": {"type":"string"},
+                    },
+                    "required": ["type","reason_text"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_refill_request",
+                "description": "Create a new refill request for the logged-in patient.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "medication_name": {"type":"string"},
+                        "dosage": {"type":"string"},
+                        "frequency": {"type":"string"},
+                        "notes": {"type":"string"},
+                        "ai_summary": {"type":"string"},
+                    },
+                    "required": ["medication_name"]
+                }
+            }
+        },
+    ]
+
+    system = (
+        "You are a voice assistant for a medical portal. "
+        "Your job: help the patient create either an appointment request (VISIT or PHONE) "
+        "or a refill request. Ask short follow-up questions if required fields are missing. "
+        "When ready, call the appropriate tool. Keep replies short and friendly."
+    )
+
+    # First model call
+    resp = client.responses.create(
+        model="gpt-4o-mini",
+        input=[
+            {"role":"system","content": system},
+            {"role":"user","content": text},
+        ],
+        tools=tools
+    )
+
+    # If tool called, execute it
+    if resp.output and len(resp.output) > 0:
+        for item in resp.output:
+            if item.type == "function_call":
+                fn = item.name
+                args = item.arguments or {}
+                if isinstance(args, str):
+                    args = json.loads(args)
+
+                if fn == "create_appointment_request":
+                    result = _tool_create_appointment(request, args)
+                elif fn == "create_refill_request":
+                    result = _tool_create_refill(request, args)
+                else:
+                    result = {"error":"unknown_tool"}
+
+                # Send tool result back for final message
+                resp2 = client.responses.create(
+                    model="gpt-4o-mini",
+                    input=[
+                        {"role":"system","content": system},
+                        {"role":"user","content": text},
+                        {"role":"tool","name": fn, "content": json.dumps(result)},
+                    ],
+                    tools=tools
+                )
+
+                final_text = ""
+                if resp2.output_text:
+                    final_text = resp2.output_text
+                else:
+                    final_text = "Done."
+
+                return JsonResponse({"reply": final_text, "done": True, "result": result})
+
+    # No tool call → assistant question
+    return JsonResponse({"reply": resp.output_text or "Please tell me what you want to do."})
+
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
 

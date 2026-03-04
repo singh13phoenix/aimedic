@@ -46,61 +46,124 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function(){
-  const micBtn = document.getElementById("micBtn");
+ <script>
+(() => {
   const transcriptEl = document.getElementById("transcript");
   const aiReplyEl = document.getElementById("aiReply");
 
+  // Create a one-time "Enable Microphone" button if micBtn exists
+  let micBtn = document.getElementById("micBtn");
+  if (!micBtn) {
+    micBtn = document.createElement("button");
+    micBtn.id = "micBtn";
+    micBtn.className = "btn btn-dark mic-btn";
+    micBtn.textContent = "🎤";
+    document.body.appendChild(micBtn);
+  }
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
   let rec = null;
   let listening = false;
+  let sessionId = null;   // server-side conversation/session id (optional)
+  let lastAI = "";
 
-  async function sendToAI(text){
-    aiReplyEl.textContent = "Thinking...";
-    const res = await fetch("/ai/chat/", {
+  function speak(text) {
+    lastAI = text;
+    aiReplyEl.textContent = text;
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-CA";
+    window.speechSynthesis.speak(u);
+  }
+
+  async function sendToAI(userText) {
+    const res = await fetch("/ai/voice/patient/", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({text, mode:"user"})
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        text: userText,
+        session_id: sessionId
+      })
     });
     const data = await res.json();
-    aiReplyEl.textContent = data.reply || "No reply";
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(aiReplyEl.textContent);
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
+    if (data.session_id) sessionId = data.session_id;
+
+    // AI response text
+    if (data.reply) speak(data.reply);
+
+    // If AI says it completed something, show a quick UI hint
+    if (data.done && data.result) {
+      const msg = data.result.appointment_id
+        ? `✅ Created appointment request #${data.result.appointment_id}`
+        : data.result.refill_id
+          ? `✅ Created refill request #${data.result.refill_id}`
+          : "✅ Done";
+      transcriptEl.textContent = msg;
     }
   }
 
-  function start(){
-    if(!SpeechRecognition){
-      alert("SpeechRecognition not supported in this browser. Use Chrome/Edge desktop.");
+  function startListening() {
+    if (!SpeechRecognition) {
+      alert("SpeechRecognition not supported. Use Chrome/Edge.");
       return;
     }
     rec = new SpeechRecognition();
-    rec.lang = "en-US";
+    rec.lang = "en-CA";
     rec.interimResults = true;
     rec.continuous = false;
+
     rec.onresult = (e) => {
       let t = "";
-      for (let i=0; i<e.results.length; i++){
-        t += e.results[i][0].transcript;
-      }
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
       transcriptEl.textContent = t;
-      if (e.results[e.results.length-1].isFinal){
-        sendToAI(t.trim());
+
+      if (e.results[e.results.length - 1].isFinal) {
+        const finalText = t.trim();
+        if (finalText) sendToAI(finalText);
       }
     };
-    rec.onend = () => { listening = false; micBtn.textContent = "🎤"; };
+
+    rec.onerror = () => {
+      listening = false;
+      micBtn.textContent = "🎤";
+    };
+
+    rec.onend = () => {
+      listening = false;
+      micBtn.textContent = "🎤";
+      // auto-restart listening after AI spoke? (optional)
+      // keep it simple: user clicks mic again if needed
+    };
+
     listening = true;
     micBtn.textContent = "⏹️";
     transcriptEl.textContent = "Listening...";
     rec.start();
   }
 
-  micBtn.addEventListener("click", ()=>{
-    if(listening && rec){ rec.stop(); listening=false; micBtn.textContent="🎤"; return; }
-    start();
+  // Auto speak on page load
+  window.addEventListener("load", () => {
+    speak("Hi! What would you like to do today — book a visit appointment, phone appointment, or refill medicine?");
+    // First mic start still needs a click.
+    micBtn.classList.remove("btn-dark");
+    micBtn.classList.add("btn-success");
+    micBtn.textContent = "Enable Mic";
+  });
+
+  micBtn.addEventListener("click", () => {
+    // first click: enable mic & start
+    if (listening && rec) {
+      rec.stop();
+      listening = false;
+      micBtn.textContent = "🎤";
+      return;
+    }
+    micBtn.classList.remove("btn-success");
+    micBtn.classList.add("btn-dark");
+    micBtn.textContent = "🎤";
+    startListening();
   });
 })();
 </script>
