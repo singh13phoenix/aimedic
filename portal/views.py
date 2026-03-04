@@ -539,43 +539,39 @@ def ai_voice_patient(request):
     )
 
     tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "create_appointment_request",
-                "description": "Create an appointment request for the logged-in patient.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "type": {"type": "string", "enum": ["VISIT", "PHONE"]},
-                        "reason_text": {"type": "string"},
-                        "preferred_time_1": {"type": "string", "description": "ISO datetime"},
-                        "preferred_time_2": {"type": "string", "description": "ISO datetime (optional)"},
-                        "ai_summary": {"type": "string"},
-                    },
-                    "required": ["type", "reason_text", "preferred_time_1"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "create_refill_request",
-                "description": "Create a refill request for the logged-in patient.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "medication_name": {"type": "string"},
-                        "dosage": {"type": "string"},
-                        "frequency": {"type": "string"},
-                        "notes": {"type": "string"},
-                        "ai_summary": {"type": "string"},
-                    },
-                    "required": ["medication_name"]
-                }
-            }
+    {
+        "type": "function",
+        "name": "create_appointment_request",
+        "description": "Create an appointment request (VISIT or PHONE) for the logged-in patient.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type": {"type":"string","enum":["VISIT","PHONE"]},
+                "reason_text": {"type":"string"},
+                "preferred_time_1": {"type":"string", "description":"ISO datetime"},
+                "preferred_time_2": {"type":"string", "description":"ISO datetime (optional)"},
+                "ai_summary": {"type":"string"}
+            },
+            "required": ["type","reason_text","preferred_time_1"]
         }
-    ]
+    },
+    {
+        "type": "function",
+        "name": "create_refill_request",
+        "description": "Create a refill request for the logged-in patient.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "medication_name": {"type":"string"},
+                "dosage": {"type":"string"},
+                "frequency": {"type":"string"},
+                "notes": {"type":"string"},
+                "ai_summary": {"type":"string"}
+            },
+            "required": ["medication_name"]
+        }
+    }
+]
 
     # Add user message to history
     history.append({"role": "user", "content": text})
