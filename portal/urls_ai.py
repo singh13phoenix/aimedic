@@ -7,4 +7,5 @@ urlpatterns = [
     path("user/create-appointment/", views.ai_user_create_appointment, name="ai_user_create_appointment"),
     path("user/create-refill/", views.ai_user_create_refill, name="ai_user_create_refill"),
     path("voice/patient/", views.ai_voice_patient, name="ai_voice_patient"),
+    
 ]

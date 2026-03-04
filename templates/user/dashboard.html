@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Patient Dashboard{% endblock %}
+
 {% block content %}
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card p-4">
       <h3 class="mb-1">Welcome, {{ profile }}</h3>
-      <div class="text-muted mb-3">Assigned doctor: <strong>{{ profile.assigned_doctor|default:"Not assigned" }}</strong></div>
+      <div class="text-muted mb-3">
+        Assigned doctor: <strong>{{ profile.assigned_doctor|default:"Not assigned" }}</strong>
+      </div>
 
       <div class="d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-primary" href="/user/appointment/new/?type=VISIT">Visit appointment</a>
@@ -14,17 +17,11 @@
         <a class="btn btn-outline-secondary" href="/user/requests/">Track my requests</a>
       </div>
 
-      <h5 class="mb-2">AI Voice Assistant (Browser)</h5>
-      <p class="text-muted mb-2">Click mic and speak: “phone appointment tomorrow” or “refill medicine”.</p>
-
-      <div class="d-flex gap-2 align-items-center">
-        <button id="micBtn" class="btn btn-dark mic-btn" type="button">🎤</button>
-        <div class="flex-grow-1 transcript" id="transcript">Transcript will appear here...</div>
-      </div>
-
-      <div class="mt-3">
-        <div class="fw-semibold">AI Reply</div>
-        <div class="transcript" id="aiReply">Waiting...</div>
+      <div class="alert alert-secondary mb-0">
+        <div class="fw-semibold">Voice-first mode</div>
+        <div class="text-muted small">
+          A voice assistant popup will open automatically. Click <b>Enable Microphone</b> once and speak normally.
+        </div>
       </div>
     </div>
   </div>
@@ -43,72 +40,172 @@
     </div>
   </div>
 </div>
+
+<!-- Voice Assistant Modal -->
+<div class="modal fade" id="voiceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:18px;">
+      <div class="modal-header">
+        <h5 class="modal-title">AImedic Voice Assistant</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert alert-info mb-3">
+          You can say: <b>“book visit appointment”</b>, <b>“phone appointment”</b>, or <b>“refill medicine”</b>.
+        </div>
+
+        <div class="d-flex gap-2 align-items-center mb-3">
+          <button id="enableMicBtn" class="btn btn-success">Enable Microphone</button>
+          <button id="stopBtn" class="btn btn-outline-danger" disabled>Stop</button>
+          <button id="resetBtn" class="btn btn-outline-secondary">Reset</button>
+          <span id="micStatus" class="text-muted small">Mic is off</span>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="fw-semibold mb-1">You said</div>
+            <div id="userTranscript" class="transcript">…</div>
+          </div>
+          <div class="col-md-6">
+            <div class="fw-semibold mb-1">Assistant</div>
+            <div id="assistantText" class="transcript">…</div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <div class="fw-semibold mb-2">Conversation</div>
+        <div id="chatLog" class="transcript" style="max-height:260px; overflow:auto;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <small class="text-muted me-auto">
+          Emergency: call <b>911</b>. For BC health advice: <b>811</b>.
+        </small>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
- <script>
+<script>
 (() => {
-  const transcriptEl = document.getElementById("transcript");
-  const aiReplyEl = document.getElementById("aiReply");
-
-  // Create a one-time "Enable Microphone" button if micBtn exists
-  let micBtn = document.getElementById("micBtn");
-  if (!micBtn) {
-    micBtn = document.createElement("button");
-    micBtn.id = "micBtn";
-    micBtn.className = "btn btn-dark mic-btn";
-    micBtn.textContent = "🎤";
-    document.body.appendChild(micBtn);
-  }
-
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const modalEl = document.getElementById("voiceModal");
+  const enableBtn = document.getElementById("enableMicBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const micStatus = document.getElementById("micStatus");
+  const userTranscript = document.getElementById("userTranscript");
+  const assistantText = document.getElementById("assistantText");
+  const chatLog = document.getElementById("chatLog");
 
   let rec = null;
   let listening = false;
-  let sessionId = null;   // server-side conversation/session id (optional)
-  let lastAI = "";
+  let sessionId = null;
 
-  function speak(text) {
-    lastAI = text;
-    aiReplyEl.textContent = text;
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-CA";
-    window.speechSynthesis.speak(u);
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, (c) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[c]));
   }
 
-  async function sendToAI(userText) {
+  function logLine(who, text) {
+    const div = document.createElement("div");
+    div.className = "mb-2";
+    div.innerHTML = `<div class="small text-muted">${escapeHtml(who)}</div><div>${escapeHtml(text)}</div>`;
+    chatLog.appendChild(div);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function speak(text) {
+    assistantText.textContent = text;
+    logLine("Assistant", text);
+
+    if (!("speechSynthesis" in window)) return Promise.resolve();
+    return new Promise((resolve) => {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-CA";
+      u.onend = resolve;
+      u.onerror = resolve;
+      window.speechSynthesis.speak(u);
+    });
+  }
+
+  function stopListening(showStatus = true) {
+    try { if (rec) rec.stop(); } catch(e) {}
+    listening = false;
+    stopBtn.disabled = true;
+    enableBtn.disabled = false;
+    enableBtn.textContent = "Enable Microphone";
+    if (showStatus) micStatus.textContent = "Stopped";
+  }
+
+  async function resetConversation() {
+    try {
+      stopListening(false);
+      sessionId = null;
+      chatLog.innerHTML = "";
+      userTranscript.textContent = "…";
+      assistantText.textContent = "…";
+      micStatus.textContent = "Resetting…";
+
+      const res = await fetch("/ai/voice/patient/", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ reset: true })
+      });
+      const data = await res.json();
+      await speak(data.reply || "Reset. What would you like to do?");
+      micStatus.textContent = "Mic ready";
+      startListening(); // ✅ auto-start listening after reset
+    } catch (e) {
+      console.error(e);
+      await speak("Sorry, reset failed. Please try again.");
+      micStatus.textContent = "Error";
+    }
+  }
+
+  async function sendToAI(text) {
     const res = await fetch("/ai/voice/patient/", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        text: userText,
-        session_id: sessionId
-      })
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ text, session_id: sessionId })
     });
+
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const raw = await res.text();
+      throw new Error("Backend did not return JSON. First 200 chars: " + raw.slice(0, 200));
+    }
+
     const data = await res.json();
     if (data.session_id) sessionId = data.session_id;
 
-    // AI response text
-    if (data.reply) speak(data.reply);
+    const reply = data.reply || "Okay.";
+    await speak(reply);
 
-    // If AI says it completed something, show a quick UI hint
-    if (data.done && data.result) {
-      const msg = data.result.appointment_id
-        ? `✅ Created appointment request #${data.result.appointment_id}`
-        : data.result.refill_id
-          ? `✅ Created refill request #${data.result.refill_id}`
-          : "✅ Done";
-      transcriptEl.textContent = msg;
+    if (data.done) {
+      micStatus.textContent = "✅ Completed";
+      stopListening(false);
+      return;
     }
+
+    startListening();
   }
 
   function startListening() {
     if (!SpeechRecognition) {
-      alert("SpeechRecognition not supported. Use Chrome/Edge.");
+      alert("SpeechRecognition not supported in this browser. Use Chrome/Edge desktop.");
       return;
     }
+    if (listening) return;
+
     rec = new SpeechRecognition();
     rec.lang = "en-CA";
     rec.interimResults = true;
@@ -117,53 +214,79 @@
     rec.onresult = (e) => {
       let t = "";
       for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-      transcriptEl.textContent = t;
+      userTranscript.textContent = t;
 
       if (e.results[e.results.length - 1].isFinal) {
         const finalText = t.trim();
-        if (finalText) sendToAI(finalText);
+        if (!finalText) return;
+
+        logLine("You", finalText);
+
+        // ✅ Reset voice command BEFORE backend call
+        const lower = finalText.toLowerCase();
+        if (lower.includes("reset") || lower.includes("start over") || lower.includes("restart")) {
+          stopListening(false);
+          resetConversation();
+          return;
+        }
+
+        stopListening(false);
+
+        sendToAI(finalText).catch(err => {
+          console.error(err);
+          micStatus.textContent = "Error";
+          speak("Sorry, I had an error. Please try again.").then(() => {});
+        });
       }
     };
 
-    rec.onerror = () => {
+    rec.onerror = (e) => {
+      console.error("SpeechRecognition error:", e);
+      micStatus.textContent = "Mic error (check permission)";
       listening = false;
-      micBtn.textContent = "🎤";
+      stopBtn.disabled = true;
+      enableBtn.disabled = false;
+      enableBtn.textContent = "Enable Microphone";
     };
 
     rec.onend = () => {
       listening = false;
-      micBtn.textContent = "🎤";
-      // auto-restart listening after AI spoke? (optional)
-      // keep it simple: user clicks mic again if needed
+      stopBtn.disabled = true;
+      enableBtn.disabled = false;
+      if (micStatus.textContent === "Listening…") micStatus.textContent = "Mic ready";
+      enableBtn.textContent = "Enable Microphone";
     };
 
     listening = true;
-    micBtn.textContent = "⏹️";
-    transcriptEl.textContent = "Listening...";
+    micStatus.textContent = "Listening…";
+    stopBtn.disabled = false;
+    enableBtn.disabled = true;
+    enableBtn.textContent = "Listening…";
+    userTranscript.textContent = "Listening...";
     rec.start();
   }
 
-  // Auto speak on page load
-  window.addEventListener("load", () => {
-    speak("Hi! What would you like to do today — book a visit appointment, phone appointment, or refill medicine?");
-    // First mic start still needs a click.
-    micBtn.classList.remove("btn-dark");
-    micBtn.classList.add("btn-success");
-    micBtn.textContent = "Enable Mic";
-  });
+  // Button bindings
+  enableBtn.addEventListener("click", () => startListening());
+  stopBtn.addEventListener("click", () => stopListening());
+  resetBtn.addEventListener("click", resetConversation);
 
-  micBtn.addEventListener("click", () => {
-    // first click: enable mic & start
-    if (listening && rec) {
-      rec.stop();
-      listening = false;
-      micBtn.textContent = "🎤";
-      return;
-    }
-    micBtn.classList.remove("btn-success");
-    micBtn.classList.add("btn-dark");
-    micBtn.textContent = "🎤";
-    startListening();
+  // Auto-open modal + intro (auto-start listening only if permission already granted)
+  window.addEventListener("load", async () => {
+    const modal = new bootstrap.Modal(modalEl, { backdrop: "static" });
+    modal.show();
+
+    chatLog.innerHTML = "";
+    userTranscript.textContent = "…";
+    assistantText.textContent = "…";
+    micStatus.textContent = "Mic is off";
+
+    await speak("Hi! What would you like to do today — book a visit appointment, phone appointment, or refill medicine?");
+    await speak("Please click Enable Microphone once, then just speak naturally. I will ask follow-up questions and submit your request when complete.");
+
+    // NOTE: Browsers require a user gesture for mic permission on first use.
+    // After permission is granted once, it will often auto-start on subsequent visits.
+    try { startListening(); } catch(e) {}
   });
 })();
 </script>
