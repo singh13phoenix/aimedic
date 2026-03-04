@@ -383,3 +383,70 @@ def doctor_patient_summary(request, user_id):
         "allergies": patient.allergies,
         "chronic_conditions": patient.chronic_conditions,
     })
+# ---------------- AI Voice assistant start ----------------
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.dateparse import parse_datetime
+
+@csrf_exempt
+def ai_user_create_appointment(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=400)
+    if not request.user.is_authenticated or request.user.role != Account.Role.USER:
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    profile = get_object_or_404(UserProfile, account=request.user)
+    if not profile.assigned_doctor:
+        return JsonResponse({"error": "no_assigned_doctor"}, status=400)
+
+    payload = json.loads(request.body.decode("utf-8"))
+    appt_type = payload.get("type")  # VISIT or PHONE
+    reason = payload.get("reason_text", "")
+    t1 = payload.get("preferred_time_1")
+    t2 = payload.get("preferred_time_2")
+
+    obj = AppointmentRequest.objects.create(
+        user=profile,
+        doctor=profile.assigned_doctor,
+        type=appt_type,
+        reason_text=reason,
+        preferred_time_1=parse_datetime(t1) if t1 else None,
+        preferred_time_2=parse_datetime(t2) if t2 else None,
+        status=AppointmentRequest.Status.PENDING,
+        ai_summary=payload.get("ai_summary","")
+    )
+
+    notify(profile.assigned_doctor.account, "New Appointment Request",
+           f"{profile} requested a {obj.get_type_display()} appointment.", "APPOINTMENT", obj.id)
+
+    return JsonResponse({"ok": True, "appointment_id": obj.id})
+
+
+@csrf_exempt
+def ai_user_create_refill(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=400)
+    if not request.user.is_authenticated or request.user.role != Account.Role.USER:
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    profile = get_object_or_404(UserProfile, account=request.user)
+    if not profile.assigned_doctor:
+        return JsonResponse({"error": "no_assigned_doctor"}, status=400)
+
+    payload = json.loads(request.body.decode("utf-8"))
+    obj = RefillRequest.objects.create(
+        user=profile,
+        doctor=profile.assigned_doctor,
+        medication_name=payload.get("medication_name",""),
+        dosage=payload.get("dosage",""),
+        frequency=payload.get("frequency",""),
+        notes=payload.get("notes",""),
+        status=RefillRequest.Status.PENDING,
+        ai_summary=payload.get("ai_summary",""),
+    )
+
+    notify(profile.assigned_doctor.account, "New Refill Request",
+           f"{profile} requested refill: {obj.medication_name}.", "REFILL", obj.id)
+
+    return JsonResponse({"ok": True, "refill_id": obj.id})
+
+# ---------------- AI Voice assistant end ----------------
